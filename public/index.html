@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html>
 
+<html>
 <head>
 
 <meta charset="UTF-8">
@@ -21,7 +21,8 @@ width:320px;
 
 button{
 padding:10px;
-margin-left:5px;
+margin:5px;
+cursor:pointer;
 }
 
 #balance{
@@ -69,7 +70,6 @@ margin-top:40px;
 <button onclick="saveWallet()">Save</button>
 
 <div id="balance"></div>
-
 <div id="yen"></div>
 
 <div class="section">
@@ -91,7 +91,6 @@ margin-top:40px;
 
 </div>
 
-
 <div class="section">
 
 <h2>Transaction History</h2>
@@ -112,17 +111,17 @@ margin-top:40px;
 
 </div>
 
-
 <div class="section">
 
-<h2>Saved Wallet Ranking</h2>
+<h2>Saved Wallets</h2>
 
-<table id="rankingTable">
+<table id="savedTable">
 
 <thead>
 <tr>
 <th>Name</th>
-<th>XLM</th>
+<th>Open</th>
+<th>Delete</th>
 </tr>
 </thead>
 
@@ -142,7 +141,6 @@ let xlmPrice=0
 async function loadPrice(){
 
 const r=await fetch("/price")
-
 const data=await r.json()
 
 xlmPrice=data.price
@@ -162,10 +160,7 @@ const address=document.getElementById("address").value
 
 currentAddress=address
 
-/* balance */
-
 const r=await fetch(`/balance/${address}`)
-
 const data=await r.json()
 
 if(data.error){
@@ -183,7 +178,8 @@ const yen=(data.balance*xlmPrice).toFixed(0)
 document.getElementById("yen")
 .innerText="≈ ¥"+yen
 
-/* token balances */
+
+/* token */
 
 const tokenRes=await fetch(`/tokens/${address}`)
 const tokens=await tokenRes.json()
@@ -204,6 +200,7 @@ row.innerHTML=`
 tokenBody.appendChild(row)
 
 })
+
 
 /* transactions */
 
@@ -230,11 +227,17 @@ txBody.appendChild(row)
 
 }
 
+
 /* 保存 */
 
 function saveWallet(){
 
 const name=document.getElementById("name").value
+
+if(!currentAddress){
+alert("先にアドレス検索してください")
+return
+}
 
 let wallets=JSON.parse(localStorage.getItem("wallets")||"[]")
 
@@ -245,47 +248,29 @@ address:currentAddress
 
 localStorage.setItem("wallets",JSON.stringify(wallets))
 
-loadRanking()
+loadSaved()
 
 }
 
-/* ランキング */
 
-async function loadRanking(){
+/* 保存ウォレット表示 */
+
+function loadSaved(){
 
 let wallets=JSON.parse(localStorage.getItem("wallets")||"[]")
 
-let results=[]
-
-for(let w of wallets){
-
-const r=await fetch(`/balance/${w.address}`)
-const data=await r.json()
-
-if(!data.error){
-
-results.push({
-name:w.name,
-balance:parseFloat(data.balance)
-})
-
-}
-
-}
-
-results.sort((a,b)=>b.balance-a.balance)
-
-const tbody=document.querySelector("#rankingTable tbody")
+const tbody=document.querySelector("#savedTable tbody")
 
 tbody.innerHTML=""
 
-results.forEach(w=>{
+wallets.forEach((w,index)=>{
 
 const row=document.createElement("tr")
 
 row.innerHTML=`
 <td>${w.name}</td>
-<td>${w.balance}</td>
+<td><button onclick="openWallet('${w.address}')">OPEN</button></td>
+<td><button onclick="deleteWallet(${index})">DELETE</button></td>
 `
 
 tbody.appendChild(row)
@@ -294,7 +279,33 @@ tbody.appendChild(row)
 
 }
 
-loadRanking()
+
+/* OPEN */
+
+function openWallet(address){
+
+document.getElementById("address").value=address
+
+check()
+
+}
+
+
+/* 削除 */
+
+function deleteWallet(index){
+
+let wallets=JSON.parse(localStorage.getItem("wallets")||"[]")
+
+wallets.splice(index,1)
+
+localStorage.setItem("wallets",JSON.stringify(wallets))
+
+loadSaved()
+
+}
+
+loadSaved()
 
 </script>
 
