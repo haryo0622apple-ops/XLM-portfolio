@@ -1,62 +1,35 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XLM Mini Monitor</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/13.0.0/stellar-sdk.min.js"></script>
-    <style>
-        :root { --main: #007bff; }
-        body { font-family: sans-serif; background: #f8f9fa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; width: 320px; }
-        input { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 13px; }
-        button { background: var(--main); color: white; border: none; padding: 12px 25px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; }
-        .balance-label { font-size: 12px; color: #999; margin-top: 25px; text-transform: uppercase; letter-spacing: 1px; }
-        #balance { font-size: 32px; font-weight: 800; color: var(--main); margin: 5px 0; }
-        #status { font-size: 11px; color: #dc3545; min-height: 15px; margin-top: 10px; }
-    </style>
+<title>XLM Balance Checker</title>
 </head>
 <body>
 
-<div class="card">
-    <h2 style="margin:0; font-size: 18px;">Stellar Portfolio</h2>
-    <input type="text" id="addr" placeholder="Wallet Address (G...)">
-    <button onclick="update()">残高を更新</button>
+<h2>XLM Balance Checker</h2>
 
-    <div class="balance-label">Total Balance</div>
-    <div id="balance">0.00 XLM</div>
-    <div id="status"></div>
-</div>
+<input id="address" placeholder="Stellar Address">
+<button onclick="check()">Check</button>
+
+<h3 id="result"></h3>
 
 <script>
-    const server = new StellarSdk.Server('https://stellar-mainnet.publicnode.com');
+async function check(){
 
-    // 保存されたアドレスがあれば自動読み込み
-    window.onload = () => {
-        const saved = localStorage.getItem('stellar_addr');
-        if(saved) { document.getElementById('addr').value = saved; update(); }
-    };
+const address = document.getElementById("address").value
 
-    async function update() {
-        const addr = document.getElementById('addr').value.trim();
-        const balEl = document.getElementById('balance');
-        const statEl = document.getElementById('status');
+const res = await fetch(`/balance/${address}`)
+const data = await res.json()
 
-        if(!addr.startsWith('G')) return;
-        localStorage.setItem('stellar_addr', addr);
-        
-        balEl.innerText = "Checking...";
-        statEl.innerText = "";
+if(data.balance){
+document.getElementById("result").innerText =
+data.balance + " XLM"
+}else{
+document.getElementById("result").innerText =
+"Address not found"
+}
 
-        try {
-            const acc = await server.loadAccount(addr);
-            const native = acc.balances.find(b => b.asset_type === 'native');
-            balEl.innerText = parseFloat(native.balance).toLocaleString(undefined, {minimumFractionDigits: 2}) + " XLM";
-        } catch (e) {
-            balEl.innerText = "--- XLM";
-            statEl.innerText = "取得失敗（未有効化またはアドレスミス）";
-        }
-    }
+}
 </script>
+
 </body>
 </html>
