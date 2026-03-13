@@ -1,9 +1,13 @@
-// ローカルストレージからアドレスを読み込む
-const savedAddress = localStorage.getItem('stellar_address');
+import express from 'express';
+import path from 'path';
 
-// 保存する関数
-function saveAddress(address: string) {
-  localStorage.setItem('stellar_address', address);
-  alert('アドレスを保存しました！');
-  location.reload(); // 再読み込みして残高表示を更新
-}
+const app = express();
+// Railwayが割り当てるポート番号を最優先で使う設定
+const PORT = process.env.PORT || 3000;
+
+// publicフォルダの中身（画面）を公開する
+app.use(express.static(path.join(__dirname, '../public')));
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
