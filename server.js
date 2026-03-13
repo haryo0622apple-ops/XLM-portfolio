@@ -5,9 +5,33 @@ const app = express()
 
 app.use(express.static("public"))
 
-/* Balance */
+/* XLM価格 */
 
-app.get("/balance/:address", async (req, res) => {
+app.get("/price", async (req,res)=>{
+
+try{
+
+const r = await fetch(
+"https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=jpy"
+)
+
+const data = await r.json()
+
+res.json({
+price:data.stellar.jpy
+})
+
+}catch{
+
+res.json({price:0})
+
+}
+
+})
+
+/* XLM残高 */
+
+app.get("/balance/:address", async (req,res)=>{
 
 const address = req.params.address
 
@@ -16,79 +40,107 @@ try{
 const r =
 await fetch(`https://horizon.stellar.org/accounts/${address}`)
 
-const data =
-await r.json()
+const data = await r.json()
 
 const xlm =
-data.balances.find(b => b.asset_type === "native")
+data.balances.find(b=>b.asset_type==="native")
 
 res.json({
-balance: xlm.balance
+balance:xlm.balance
 })
 
 }catch{
 
 res.json({
-error: "Address not found"
+error:"Address not found"
 })
 
 }
 
 })
 
-/* Transactions */
+/* トークン残高 */
 
-app.get("/transactions/:address", async (req, res) => {
+app.get("/tokens/:address", async (req,res)=>{
 
-const address = req.params.address
+const address=req.params.address
 
 try{
 
-const r =
+const r=
+await fetch(`https://horizon.stellar.org/accounts/${address}`)
+
+const data=await r.json()
+
+const tokens=data.balances.map(b=>{
+
+let asset="XLM"
+
+if(b.asset_code){
+asset=b.asset_code
+}
+
+return{
+asset:asset,
+balance:b.balance
+}
+
+})
+
+res.json(tokens)
+
+}catch{
+
+res.json([])
+
+}
+
+})
+
+/* transactions */
+
+app.get("/transactions/:address", async (req,res)=>{
+
+const address=req.params.address
+
+try{
+
+const r=
 await fetch(`https://horizon.stellar.org/accounts/${address}/payments?limit=20&order=desc`)
 
-const data =
-await r.json()
+const data=await r.json()
 
-const tx =
-data._embedded.records
+const tx=data._embedded.records
 
-const result =
-tx.map(t => {
+const result=tx.map(t=>{
 
-let asset = "XLM"
+let asset="XLM"
 
 if(t.asset_code){
-asset = t.asset_code
+asset=t.asset_code
 }
 
-/* type変換 */
+let type=t.type
 
-let type = t.type
-
-if(type === "path_payment_strict_send"){
-type = "SWAP"
+if(type==="path_payment_strict_send"||type==="path_payment_strict_receive"){
+type="SWAP"
 }
 
-if(type === "path_payment_strict_receive"){
-type = "SWAP"
-}
+if(type==="payment"){
 
-if(type === "payment"){
-
-if(t.from === address){
-type = "SEND"
+if(t.from===address){
+type="SEND"
 }else{
-type = "RECEIVE"
+type="RECEIVE"
 }
 
 }
 
 return{
-type: type,
-amount: t.amount,
-asset: asset,
-time: t.created_at
+type:type,
+amount:t.amount,
+asset:asset,
+time:t.created_at
 }
 
 })
@@ -103,11 +155,10 @@ res.json([])
 
 })
 
-const port =
-process.env.PORT || 3000
+const port=process.env.PORT||3000
 
-app.listen(port, () => {
+app.listen(port,()=>{
 
-console.log("Server started")
+console.log("server started")
 
 })
