@@ -4,8 +4,7 @@
 <head>
 
 <meta charset="UTF-8">
-
-<title>XLM Wallet Checker</title>
+<title>XLM Wallet Tool</title>
 
 <style>
 
@@ -45,7 +44,7 @@ th{
 background:#f5f5f5;
 }
 
-.saved{
+.section{
 margin-top:40px;
 }
 
@@ -55,7 +54,11 @@ margin-top:40px;
 
 <body>
 
-<h1>XLM Wallet Checker</h1>
+<h1>XLM Wallet Tool</h1>
+
+<div id="price"></div>
+
+<br>
 
 <input id="address" placeholder="Stellar Address">
 <button onclick="check()">Check</button>
@@ -66,6 +69,30 @@ margin-top:40px;
 <button onclick="saveWallet()">Save</button>
 
 <div id="balance"></div>
+
+<div id="yen"></div>
+
+<div class="section">
+
+<h2>Token Balances</h2>
+
+<table id="tokenTable">
+
+<thead>
+<tr>
+<th>Asset</th>
+<th>Balance</th>
+</tr>
+</thead>
+
+<tbody></tbody>
+
+</table>
+
+</div>
+
+
+<div class="section">
 
 <h2>Transaction History</h2>
 
@@ -83,83 +110,121 @@ margin-top:40px;
 
 </table>
 
+</div>
 
-<div class="saved">
 
-<h2>Saved Wallets</h2>
+<div class="section">
 
-<ul id="walletList"></ul>
+<h2>Saved Wallet Ranking</h2>
+
+<table id="rankingTable">
+
+<thead>
+<tr>
+<th>Name</th>
+<th>XLM</th>
+</tr>
+</thead>
+
+<tbody></tbody>
+
+</table>
 
 </div>
 
 <script>
 
 let currentAddress=""
+let xlmPrice=0
+
+/* XLM価格 */
+
+async function loadPrice(){
+
+const r=await fetch("/price")
+
+const data=await r.json()
+
+xlmPrice=data.price
+
+document.getElementById("price")
+.innerText="XLM Price ¥"+xlmPrice
+
+}
+
+loadPrice()
 
 /* 検索 */
 
 async function check(){
 
-const address =
-document.getElementById("address").value
+const address=document.getElementById("address").value
 
-currentAddress = address
+currentAddress=address
 
 /* balance */
 
-const balanceRes =
-await fetch(`/balance/${address}`)
+const r=await fetch(`/balance/${address}`)
 
-const balanceData =
-await balanceRes.json()
+const data=await r.json()
 
-if(balanceData.error){
+if(data.error){
 
-document.getElementById("balance")
-.innerText="Address not found"
-
+document.getElementById("balance").innerText="Address not found"
 return
 
 }
 
 document.getElementById("balance")
-.innerText =
-balanceData.balance + " XLM"
+.innerText=data.balance+" XLM"
+
+const yen=(data.balance*xlmPrice).toFixed(0)
+
+document.getElementById("yen")
+.innerText="≈ ¥"+yen
+
+/* token balances */
+
+const tokenRes=await fetch(`/tokens/${address}`)
+const tokens=await tokenRes.json()
+
+const tokenBody=document.querySelector("#tokenTable tbody")
+
+tokenBody.innerHTML=""
+
+tokens.forEach(t=>{
+
+const row=document.createElement("tr")
+
+row.innerHTML=`
+<td>${t.asset}</td>
+<td>${t.balance}</td>
+`
+
+tokenBody.appendChild(row)
+
+})
 
 /* transactions */
 
-const txRes =
-await fetch(`/transactions/${address}`)
+const txRes=await fetch(`/transactions/${address}`)
+const tx=await txRes.json()
 
-const tx =
-await txRes.json()
+const txBody=document.querySelector("#txTable tbody")
 
-const tbody =
-document.querySelector("#txTable tbody")
+txBody.innerHTML=""
 
-tbody.innerHTML=""
+tx.forEach(t=>{
 
-tx.forEach(t => {
+const row=document.createElement("tr")
 
-const row =
-document.createElement("tr")
-
-const date =
-t.time.substring(0,10)
-
-const type =
-t.type
-
-const amount =
-t.amount + " " + t.asset
-
-row.innerHTML = `
-<td>${date}</td>
-<td>${type}</td>
-<td>${amount}</td>
+row.innerHTML=`
+<td>${t.time.substring(0,10)}</td>
+<td>${t.type}</td>
+<td>${t.amount} ${t.asset}</td>
 `
 
-tbody.appendChild(row)
+txBody.appendChild(row)
 
 })
 
@@ -169,71 +234,67 @@ tbody.appendChild(row)
 
 function saveWallet(){
 
-const name =
-document.getElementById("name").value
+const name=document.getElementById("name").value
 
-if(!currentAddress){
-alert("Search address first")
-return
-}
-
-let wallets =
-JSON.parse(localStorage.getItem("wallets") || "[]")
+let wallets=JSON.parse(localStorage.getItem("wallets")||"[]")
 
 wallets.push({
 name:name,
 address:currentAddress
 })
 
-localStorage.setItem(
-"wallets",
-JSON.stringify(wallets)
-)
+localStorage.setItem("wallets",JSON.stringify(wallets))
 
-loadWallets()
+loadRanking()
 
 }
 
-/* 保存ウォレット表示 */
+/* ランキング */
 
-function loadWallets(){
+async function loadRanking(){
 
-const wallets =
-JSON.parse(localStorage.getItem("wallets") || "[]")
+let wallets=JSON.parse(localStorage.getItem("wallets")||"[]")
 
-const list =
-document.getElementById("walletList")
+let results=[]
 
-list.innerHTML=""
+for(let w of wallets){
 
-wallets.forEach(w => {
+const r=await fetch(`/balance/${w.address}`)
+const data=await r.json()
 
-const li =
-document.createElement("li")
+if(!data.error){
 
-li.innerHTML =
-`${w.name} - ${w.address}
-<button onclick="loadAddress('${w.address}')">OPEN</button>`
+results.push({
+name:w.name,
+balance:parseFloat(data.balance)
+})
 
-list.appendChild(li)
+}
+
+}
+
+results.sort((a,b)=>b.balance-a.balance)
+
+const tbody=document.querySelector("#rankingTable tbody")
+
+tbody.innerHTML=""
+
+results.forEach(w=>{
+
+const row=document.createElement("tr")
+
+row.innerHTML=`
+<td>${w.name}</td>
+<td>${w.balance}</td>
+`
+
+tbody.appendChild(row)
 
 })
 
 }
 
-/* 保存アドレス検索 */
-
-function loadAddress(address){
-
-document.getElementById("address").value = address
-
-check()
-
-}
-
-/* 初期表示 */
-
-loadWallets()
+loadRanking()
 
 </script>
 
