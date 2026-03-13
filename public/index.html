@@ -1,46 +1,47 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-    <title>XLM Monitor</title>
-    <style>body { font-family: sans-serif; padding: 20px; }</style>
+    <meta charset="UTF-8">
+    <title>XLM & FLR Monitor</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f7f6; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        input { padding: 10px; width: 300px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
 </head>
 <body>
-    <h1>XLM Wallet Monitor</h1>
-    
-    <input type="text" id="addressInput" placeholder="G..." style="width: 300px;">
-    <button onclick="saveAndLoad()">保存して表示</button>
+    <div class="card">
+        <h1>投資家モニター</h1>
+        <p>Stellarアドレスを入力して保存してください。</p>
+        
+        <input type="text" id="addressInput" placeholder="G...">
+        <button onclick="saveAddress()">保存して表示</button>
 
-    <div id="result" style="margin-top: 20px;">
-        <p>残高: <span id="balance">---</span> XLM</p>
+        <div id="status" style="margin-top: 20px;">
+            <h3>保存中のアドレス:</h3>
+            <p id="displayAddr">なし</p>
+        </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/13.0.0/stellar-sdk.min.js"></script>
     <script>
-        const server = new StellarSdk.Server('https://horizon.stellar.org');
-
-        // ページ開いた時に保存済みアドレスがあれば読み込む
+        // ページ読み込み時に保存されたアドレスを表示
         window.onload = () => {
-            const saved = localStorage.getItem('my_xlm_address');
-            if (saved) {
-                document.getElementById('addressInput').value = saved;
-                loadBalance(saved);
+            const savedAddress = localStorage.getItem('stellar_address');
+            if (savedAddress) {
+                document.getElementById('displayAddr').innerText = savedAddress;
+                document.getElementById('addressInput').value = savedAddress;
             }
         };
 
-        function saveAndLoad() {
-            const addr = document.getElementById('addressInput').value;
-            localStorage.setItem('my_xlm_address', addr); // ブラウザに保存
-            loadBalance(addr);
-        }
-
-        async function loadBalance(addr) {
-            try {
-                const account = await server.loadAccount(addr);
-                const xlm = account.balances.find(b => b.asset_type === 'native');
-                document.getElementById('balance').innerText = xlm.balance;
-            } catch (e) {
-                alert('エラー: アドレスが正しくないか、未有効化です');
-            }
+        // あなたの提示した保存ロジック
+        function saveAddress() {
+            const address = document.getElementById('addressInput').value;
+            if(!address) return alert("アドレスを入力してください");
+            
+            localStorage.setItem('stellar_address', address);
+            alert('アドレスを保存しました！');
+            location.reload(); 
         }
     </script>
 </body>
