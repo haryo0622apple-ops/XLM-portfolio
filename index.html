@@ -10,20 +10,20 @@
         .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
         h1 { font-size: 1.5rem; margin-bottom: 20px; color: var(--primary); text-align: center; }
         .label { font-size: 12px; color: #777; margin-bottom: 5px; }
-        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; margin-bottom: 10px; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; margin-bottom: 10px; font-size: 14px; }
         button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .info-box { background: #e7f3ff; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: center; }
         .balance-amount { font-size: 24px; font-weight: bold; color: var(--primary); }
-        .error-msg { color: #dc3545; font-size: 12px; margin-top: 5px; }
+        .error-msg { color: #dc3545; font-size: 12px; margin-top: 10px; word-break: break-all; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <h1>XLM Monitor</h1>
-    <div class="label">Stellar Address</div>
+    <div class="label">Stellar Wallet Address</div>
     <input type="text" id="addressInput" placeholder="G...">
-    <button onclick="saveAndFetch()">保存して確認</button>
+    <button id="fetchBtn">保存して残高を確認</button>
 
     <div id="resultArea" class="info-box" style="display:none;">
         <div class="label">現在の残高</div>
@@ -35,30 +35,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/13.0.0/stellar-sdk.min.js"></script>
 
 <script>
-    const server = new StellarSdk.Server('https://horizon.stellar.org');
+    // 別の接続先（PublicNode）を使用
+    const server = new StellarSdk.Server('https://stellar-mainnet.publicnode.com');
 
-    // 起動時に保存済みアドレスがあれば読み込む
-    window.onload = () => {
-        const saved = localStorage.getItem('stellar_address');
-        if (saved) {
-            document.getElementById('addressInput').value = saved;
-            fetchBalance(saved);
-        }
-    };
-
-    function saveAndFetch() {
-        const addr = document.getElementById('addressInput').value.trim();
-        if (!addr.startsWith('G')) return alert('Gから始まるアドレスを入力してください');
-        
-        localStorage.setItem('stellar_address', addr);
-        fetchBalance(addr);
-    }
+    const input = document.getElementById('addressInput');
+    const btn = document.getElementById('fetchBtn');
+    const balanceEl = document.getElementById('balanceDisplay');
+    const errorEl = document.getElementById('errorDisplay');
+    const area = document.getElementById('resultArea');
 
     async function fetchBalance(addr) {
-        const balanceEl = document.getElementById('balanceDisplay');
-        const errorEl = document.getElementById('errorDisplay');
-        const area = document.getElementById('resultArea');
-
         area.style.display = 'block';
         balanceEl.innerText = '更新中...';
         errorEl.innerText = '';
@@ -67,19 +53,34 @@
             const account = await server.loadAccount(addr);
             const native = account.balances.find(b => b.asset_type === 'native');
             if (native) {
-                const amount = parseFloat(native.balance).toLocaleString();
+                const amount = parseFloat(native.balance).toLocaleString(undefined, { minimumFractionDigits: 2 });
                 balanceEl.innerText = `${amount} XLM`;
             }
         } catch (e) {
             console.error(e);
             balanceEl.innerText = '---';
-            if (e.response && e.response.status === 404) {
-                errorEl.innerText = 'アカウント未有効化（1 XLM以上の入金が必要です）';
-            } else {
-                errorEl.innerText = 'ネットワークエラーまたはアドレス間違い';
-            }
+            errorEl.innerText = 'エラー：' + (e.message || '取得に失敗しました');
         }
     }
+
+    btn.addEventListener('click', () => {
+        const addr = input.value.trim();
+        if (!addr.startsWith('G') || addr.length !== 56) {
+            alert('正しいStellarアドレスを入力してください');
+            return;
+        }
+        localStorage.setItem('stellar_address', addr);
+        fetchBalance(addr);
+    });
+
+    // 起動時に保存済みがあれば実行
+    window.addEventListener('load', () => {
+        const saved = localStorage.getItem('stellar_address');
+        if (saved) {
+            input.value = saved;
+            fetchBalance(saved);
+        }
+    });
 </script>
 </body>
 </html>
