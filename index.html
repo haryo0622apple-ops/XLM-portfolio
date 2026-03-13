@@ -1,16 +1,60 @@
-<h2>XLM Balance Checker</h2>
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>XLM Wallet Explorer</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+font-family:Arial;
+max-width:600px;
+margin:auto;
+padding:40px;
+}
+
+input{
+width:80%;
+padding:10px;
+}
+
+button{
+padding:10px;
+}
+
+canvas{
+margin-top:40px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>XLM Wallet Explorer</h2>
 
 <input id="address" placeholder="Stellar Address">
+
 <button onclick="check()">Check</button>
 
 <h3 id="result"></h3>
 
+<canvas id="balanceChart"></canvas>
+
+
 <script>
+
+let chart;
 
 async function check(){
 
 const address =
 document.getElementById("address").value
+
 
 const res =
 await fetch(`/balance/${address}`)
@@ -21,8 +65,11 @@ await res.json()
 if(data.balance){
 
 document.getElementById("result").innerText =
-data.balance + " XLM  (約 ¥" +
-Math.floor(data.jpyValue).toLocaleString() + ")"
+data.balance +
+" XLM  (約 ¥"+
+Math.floor(data.jpyValue).toLocaleString()+")"
+
+loadChart(address)
 
 }else{
 
@@ -33,4 +80,70 @@ document.getElementById("result").innerText =
 
 }
 
+
+
+async function loadChart(address){
+
+const res =
+await fetch(`/transactions/${address}`)
+
+const data =
+await res.json()
+
+let balance=0
+
+let labels=[]
+let values=[]
+
+data.reverse().forEach(tx=>{
+
+if(tx.type==="receive")
+balance+=Number(tx.amount)
+
+if(tx.type==="send")
+balance-=Number(tx.amount)
+
+labels.push(tx.time.substring(0,10))
+
+values.push(balance)
+
+})
+
+
+const ctx=
+document.getElementById("balanceChart")
+
+if(chart){
+chart.destroy()
+}
+
+chart=new Chart(ctx,{
+
+type:"line",
+
+data:{
+labels:labels,
+
+datasets:[{
+
+label:"XLM Balance",
+
+data:values,
+
+borderWidth:2,
+
+tension:0.1
+
+}]
+
+}
+
+})
+
+}
+
 </script>
+
+</body>
+
+</html>
