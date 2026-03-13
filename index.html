@@ -3,91 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Monitor</title>
+    <title>XLM Mini Monitor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/13.0.0/stellar-sdk.min.js"></script>
     <style>
-        :root { --primary: #007bff; --bg: #f4f7f6; --text: #333; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
-        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
-        h1 { font-size: 1.5rem; margin-bottom: 20px; color: var(--primary); text-align: center; }
-        .label { font-size: 12px; color: #777; margin-bottom: 5px; }
-        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; margin-bottom: 10px; font-size: 14px; }
-        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .info-box { background: #e7f3ff; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: center; }
-        .balance-amount { font-size: 24px; font-weight: bold; color: var(--primary); }
-        .error-msg { color: #dc3545; font-size: 12px; margin-top: 10px; word-break: break-all; line-height: 1.4; }
+        :root { --main: #007bff; }
+        body { font-family: sans-serif; background: #f8f9fa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; width: 320px; }
+        input { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 13px; }
+        button { background: var(--main); color: white; border: none; padding: 12px 25px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; }
+        .balance-label { font-size: 12px; color: #999; margin-top: 25px; text-transform: uppercase; letter-spacing: 1px; }
+        #balance { font-size: 32px; font-weight: 800; color: var(--main); margin: 5px 0; }
+        #status { font-size: 11px; color: #dc3545; min-height: 15px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h1>XLM Monitor</h1>
-    <div class="label">Stellar Wallet Address</div>
-    <input type="text" id="addressInput" placeholder="G...">
-    <button id="fetchBtn">保存して残高を確認</button>
+    <h2 style="margin:0; font-size: 18px;">Stellar Portfolio</h2>
+    <input type="text" id="addr" placeholder="Wallet Address (G...)">
+    <button onclick="update()">残高を更新</button>
 
-    <div id="resultArea" class="info-box" style="display:none;">
-        <div class="label">現在の残高</div>
-        <div id="balanceDisplay" class="balance-amount">読み込み中...</div>
-        <div id="errorDisplay" class="error-msg"></div>
-    </div>
+    <div class="balance-label">Total Balance</div>
+    <div id="balance">0.00 XLM</div>
+    <div id="status"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/13.0.0/stellar-sdk.min.js"></script>
-
 <script>
-    // 最も安定している公共ノードを使用
     const server = new StellarSdk.Server('https://stellar-mainnet.publicnode.com');
 
-    const input = document.getElementById('addressInput');
-    const btn = document.getElementById('fetchBtn');
-    const balanceEl = document.getElementById('balanceDisplay');
-    const errorEl = document.getElementById('errorDisplay');
-    const area = document.getElementById('resultArea');
+    // 保存されたアドレスがあれば自動読み込み
+    window.onload = () => {
+        const saved = localStorage.getItem('stellar_addr');
+        if(saved) { document.getElementById('addr').value = saved; update(); }
+    };
 
-    async function fetchBalance(addr) {
-        area.style.display = 'block';
-        balanceEl.innerText = '更新中...';
-        errorEl.innerText = '';
+    async function update() {
+        const addr = document.getElementById('addr').value.trim();
+        const balEl = document.getElementById('balance');
+        const statEl = document.getElementById('status');
+
+        if(!addr.startsWith('G')) return;
+        localStorage.setItem('stellar_addr', addr);
+        
+        balEl.innerText = "Checking...";
+        statEl.innerText = "";
 
         try {
-            // アドレスの前後の空白を完全に除去
-            const cleanAddr = addr.trim();
-            const account = await server.loadAccount(cleanAddr);
-            const native = account.balances.find(b => b.asset_type === 'native');
-            
-            if (native) {
-                const amount = parseFloat(native.balance).toLocaleString(undefined, { minimumFractionDigits: 2 });
-                balanceEl.innerText = `${amount} XLM`;
-            }
+            const acc = await server.loadAccount(addr);
+            const native = acc.balances.find(b => b.asset_type === 'native');
+            balEl.innerText = parseFloat(native.balance).toLocaleString(undefined, {minimumFractionDigits: 2}) + " XLM";
         } catch (e) {
-            console.error(e);
-            balanceEl.innerText = '---';
-            if (e.response && e.response.status === 404) {
-                errorEl.innerText = 'アカウントが見つかりません。1 XLM以上の入金で有効化されているか確認してください。';
-            } else {
-                errorEl.innerText = 'ネットワーク接続エラーです。しばらくしてから再度お試しください。';
-            }
+            balEl.innerText = "--- XLM";
+            statEl.innerText = "取得失敗（未有効化またはアドレスミス）";
         }
     }
-
-    btn.addEventListener('click', () => {
-        const addr = input.value.trim();
-        // 基本的なバリデーション
-        if (!addr.startsWith('G') || addr.length < 50) {
-            alert('正しいStellarアドレスを入力してください（Gから始まる長い文字列です）');
-            return;
-        }
-        localStorage.setItem('stellar_address', addr);
-        fetchBalance(addr);
-    });
-
-    window.addEventListener('load', () => {
-        const saved = localStorage.getItem('stellar_address');
-        if (saved) {
-            input.value = saved;
-            fetchBalance(saved);
-        }
-    });
 </script>
 </body>
 </html>
