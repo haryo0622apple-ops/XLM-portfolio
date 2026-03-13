@@ -1,8 +1,5 @@
 <!DOCTYPE html>
 <html>
-<head>
-<title>XLM Balance Checker</title>
-</head>
 <body>
 
 <h2>XLM Balance Checker</h2>
@@ -13,22 +10,32 @@
 <h3 id="result"></h3>
 
 <script>
+
 async function check(){
 
-const address = document.getElementById("address").value
+const address =
+document.getElementById("address").value
 
-const res = await fetch(`/balance/${address}`)
-const data = await res.json()
+const res =
+await fetch(`/balance/${address}`)
+
+const data =
+await res.json()
 
 if(data.balance){
+
 document.getElementById("result").innerText =
 data.balance + " XLM"
+
 }else{
+
 document.getElementById("result").innerText =
 "Address not found"
+
 }
 
 }
+
 </script>
 
 </body>
