@@ -1,53 +1,39 @@
-const express = require("express");
-const fetch = require("node-fetch");
+app.get("/transactions/:address", async (req, res) => {
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const address = req.params.address
 
-app.use(express.static(__dirname));
+try{
 
-app.get("/balance/:address", async (req, res) => {
+const response = await fetch(
+`https://horizon.stellar.org/accounts/${address}/payments`
+)
 
-  const address = req.params.address;
+const data = await response.json()
 
-  try {
+const tx = data._embedded.records.map(t => {
 
-    // Stellarウォレット取得
-    const response = await fetch(
-      `https://horizon.stellar.org/accounts/${address}`
-    );
+let type = "other"
 
-    const data = await response.json();
+if(t.to === address) type = "receive"
+if(t.from === address) type = "send"
 
-    const balance = data.balances.find(
-      b => b.asset_type === "native"
-    ).balance;
+return {
 
-    // XLM価格取得（JPY）
-    const priceRes = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=jpy"
-    );
+amount: t.amount,
+asset: t.asset_type,
+type: type,
+time: t.created_at
 
-    const priceData = await priceRes.json();
+}
 
-    const price = priceData.stellar.jpy;
+})
 
-    const jpyValue = balance * price;
+res.json(tx)
 
-    res.json({
-      balance,
-      price,
-      jpyValue
-    });
+}catch{
 
-  } catch (error) {
+res.json({error:"failed"})
 
-    res.json({ error: "not found" });
+}
 
-  }
-
-});
-
-app.listen(PORT, () => {
-  console.log("server running");
-});
+})
