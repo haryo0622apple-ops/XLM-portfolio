@@ -17,11 +17,12 @@ margin-top:40px;
 
 input{
 padding:10px;
-width:420px;
+width:320px;
 }
 
 button{
 padding:10px;
+margin-left:5px;
 }
 
 #balance{
@@ -44,6 +45,10 @@ th{
 background:#f5f5f5;
 }
 
+.saved{
+margin-top:40px;
+}
+
 </style>
 
 </head>
@@ -53,8 +58,12 @@ background:#f5f5f5;
 <h1>XLM Wallet Checker</h1>
 
 <input id="address" placeholder="Stellar Address">
-
 <button onclick="check()">Check</button>
+
+<br><br>
+
+<input id="name" placeholder="Wallet Name">
+<button onclick="saveWallet()">Save</button>
 
 <div id="balance"></div>
 
@@ -63,27 +72,38 @@ background:#f5f5f5;
 <table id="txTable">
 
 <thead>
-
 <tr>
-
 <th>Date</th>
 <th>Type</th>
 <th>Amount</th>
-
 </tr>
-
 </thead>
 
 <tbody></tbody>
 
 </table>
 
+
+<div class="saved">
+
+<h2>Saved Wallets</h2>
+
+<ul id="walletList"></ul>
+
+</div>
+
 <script>
+
+let currentAddress=""
+
+/* 検索 */
 
 async function check(){
 
 const address =
 document.getElementById("address").value
+
+currentAddress = address
 
 /* balance */
 
@@ -105,7 +125,6 @@ return
 document.getElementById("balance")
 .innerText =
 balanceData.balance + " XLM"
-
 
 /* transactions */
 
@@ -145,6 +164,76 @@ tbody.appendChild(row)
 })
 
 }
+
+/* 保存 */
+
+function saveWallet(){
+
+const name =
+document.getElementById("name").value
+
+if(!currentAddress){
+alert("Search address first")
+return
+}
+
+let wallets =
+JSON.parse(localStorage.getItem("wallets") || "[]")
+
+wallets.push({
+name:name,
+address:currentAddress
+})
+
+localStorage.setItem(
+"wallets",
+JSON.stringify(wallets)
+)
+
+loadWallets()
+
+}
+
+/* 保存ウォレット表示 */
+
+function loadWallets(){
+
+const wallets =
+JSON.parse(localStorage.getItem("wallets") || "[]")
+
+const list =
+document.getElementById("walletList")
+
+list.innerHTML=""
+
+wallets.forEach(w => {
+
+const li =
+document.createElement("li")
+
+li.innerHTML =
+`${w.name} - ${w.address}
+<button onclick="loadAddress('${w.address}')">OPEN</button>`
+
+list.appendChild(li)
+
+})
+
+}
+
+/* 保存アドレス検索 */
+
+function loadAddress(address){
+
+document.getElementById("address").value = address
+
+check()
+
+}
+
+/* 初期表示 */
+
+loadWallets()
 
 </script>
 
