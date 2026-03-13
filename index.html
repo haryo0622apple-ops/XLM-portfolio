@@ -1,123 +1,79 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-
-<title>XLM Wallet Explorer</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta charset="UTF-8">
+<title>XLM Wallet Checker</title>
 
 <style>
-
 body{
 font-family:Arial;
-max-width:700px;
-margin:auto;
-padding:40px;
-background:#f5f5f5;
-}
-
-h2{
 text-align:center;
+margin-top:40px;
 }
 
 input{
-width:70%;
-padding:12px;
-font-size:16px;
+padding:10px;
+width:420px;
 }
 
 button{
-padding:12px;
-font-size:16px;
+padding:10px;
 }
 
-.card{
-background:white;
-padding:20px;
-margin-top:20px;
-border-radius:10px;
-box-shadow:0 0 10px rgba(0,0,0,0.1);
-}
-
-canvas{
+#balance{
+font-size:28px;
 margin-top:20px;
 }
 
+table{
+margin:auto;
+margin-top:30px;
+border-collapse:collapse;
+}
+
+td,th{
+border:1px solid #ddd;
+padding:10px 20px;
+}
+
+th{
+background:#f5f5f5;
+}
 </style>
 
 </head>
-
 <body>
 
-<h2>XLM Wallet Explorer</h2>
-
-<div class="card">
+<h1>XLM Wallet Checker</h1>
 
 <input id="address" placeholder="Stellar Address">
+<button onclick="check()">Check</button>
 
-<button onclick="check()">Search</button>
+<div id="balance"></div>
 
-</div>
+<h2>Transaction History</h2>
 
-<div class="card">
+<table id="txTable">
+<thead>
+<tr>
+<th>Date</th>
+<th>Type</th>
+<th>Amount</th>
+</tr>
+</thead>
 
-<h3 id="result"></h3>
+<tbody></tbody>
 
-</div>
-
-<div class="card">
-
-<h3>Asset History</h3>
-
-<canvas id="balanceChart"></canvas>
-
-</div>
-
+</table>
 
 <script>
-
-let chart;
-
 
 async function check(){
 
 const address =
 document.getElementById("address").value
 
-
-const res =
-await fetch(`/balance/${address}`)
-
-const data =
-await res.json()
-
-if(data.balance){
-
-document.getElementById("result").innerText =
-data.balance + " XLM (約 ¥"+
-Math.floor(data.jpyValue).toLocaleString()+")"
-
-loadChart(address)
-
-}else{
-
-document.getElementById("result").innerText =
-"Address not found"
-
-}
-
-}
-
-
-
-async function loadChart(address){
-
-const txRes =
-await fetch(`/transactions/${address}`)
-
-const tx =
-await txRes.json()
+/* balance */
 
 const balanceRes =
 await fetch(`/balance/${address}`)
@@ -125,55 +81,52 @@ await fetch(`/balance/${address}`)
 const balanceData =
 await balanceRes.json()
 
-let balance = Number(balanceData.balance)
+if(balanceData.error){
 
-let labels=[]
-let values=[]
+document.getElementById("balance")
+.innerText="Address not found"
 
+return
+}
+
+document.getElementById("balance")
+.innerText=
+balanceData.balance+" XLM"
+
+
+/* transactions */
+
+const txRes =
+await fetch(`/transactions/${address}`)
+
+const tx =
+await txRes.json()
+
+const tbody =
+document.querySelector("#txTable tbody")
+
+tbody.innerHTML=""
 
 tx.forEach(t=>{
 
-labels.unshift(t.time.substring(0,10))
+const row=document.createElement("tr")
 
-values.unshift(balance)
+const date=
+t.time.substring(0,10)
 
-if(t.type==="receive")
-balance -= Number(t.amount)
+const type=
+t.type
 
-if(t.type==="send")
-balance += Number(t.amount)
+const amount=
+t.amount+" XLM"
 
-})
+row.innerHTML=`
+<td>${date}</td>
+<td>${type}</td>
+<td>${amount}</td>
+`
 
-
-const ctx =
-document.getElementById("balanceChart")
-
-if(chart){
-chart.destroy()
-}
-
-chart = new Chart(ctx,{
-
-type:"line",
-
-data:{
-
-labels:labels,
-
-datasets:[{
-
-label:"XLM Balance",
-
-data:values,
-
-borderWidth:3,
-
-tension:0.2
-
-}]
-
-}
+tbody.appendChild(row)
 
 })
 
@@ -182,5 +135,4 @@ tension:0.2
 </script>
 
 </body>
-
 </html>
