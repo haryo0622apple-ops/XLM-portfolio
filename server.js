@@ -1,101 +1,86 @@
-const express = require("express");
-const fetch = require("node-fetch");
+const express=require("express")
+const fetch=require("node-fetch")
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const app=express()
 
-app.use(express.static(__dirname));
+app.use(express.static("public"))
 
-app.get("/balance/:address", async (req, res) => {
+/* balance */
 
-  const address = req.params.address;
+app.get("/balance/:address",async(req,res)=>{
 
-  try {
+const address=req.params.address
 
-    const accountRes = await fetch(
-      `https://horizon.stellar.org/accounts/${address}`
-    );
+try{
 
-    const accountData = await accountRes.json();
+const r=
+await fetch(
+`https://horizon.stellar.org/accounts/${address}`
+)
 
-    if (!accountData.balances) {
-      return res.json({ error: "invalid address" });
-    }
+const data=
+await r.json()
 
-    const nativeBalance = accountData.balances.find(
-      b => b.asset_type === "native"
-    );
+const xlm=
+data.balances.find(b=>b.asset_type==="native")
 
-    const balance = nativeBalance ? Number(nativeBalance.balance) : 0;
+res.json({
+balance:xlm.balance
+})
 
-    const priceRes = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=jpy"
-    );
+}catch{
 
-    const priceData = await priceRes.json();
+res.json({
+error:"Address not found"
+})
 
-    const price = priceData.stellar.jpy;
+}
 
-    const jpyValue = balance * price;
+})
 
-    res.json({
-      balance: balance,
-      jpyValue: jpyValue
-    });
+/* transactions */
 
-  } catch (error) {
+app.get("/transactions/:address",async(req,res)=>{
 
-    res.json({ error: "server error" });
+const address=req.params.address
 
-  }
+try{
 
-});
+const r=
+await fetch(
+`https://horizon.stellar.org/accounts/${address}/payments?limit=20&order=desc`
+)
 
+const data=
+await r.json()
 
-app.get("/transactions/:address", async (req, res) => {
+const tx=data._embedded.records
 
-  const address = req.params.address;
+const result=tx.map(t=>{
 
-  try {
+return{
+type:t.type,
+amount:t.amount,
+time:t.created_at
+}
 
-    const response = await fetch(
-      `https://horizon.stellar.org/accounts/${address}/operations?limit=50`
-    );
+})
 
-    const data = await response.json();
+res.json(result)
 
-    if (!data._embedded) {
-      return res.json([]);
-    }
+}catch{
 
-    const tx = data._embedded.records
-      .filter(t => t.type === "payment")
-      .map(t => {
+res.json([])
 
-        let type = "other";
+}
 
-        if (t.to === address) type = "receive";
-        if (t.from === address) type = "send";
+})
 
-        return {
-          amount: Number(t.amount),
-          type: type,
-          time: t.created_at
-        };
+const port=
+process.env.PORT||3000
 
-      });
+app.listen(port,()=>{
 
-    res.json(tx);
+console.log("server started")
 
-  } catch (error) {
-
-    res.json([]);
-
-  }
-
-});
-
-
-app.listen(PORT, () => {
-  console.log("server running");
-});
+})
