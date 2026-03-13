@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>XLM Monitor</title>
+    <style>body { font-family: sans-serif; padding: 20px; }</style>
+</head>
+<body>
+    <h1>XLM Wallet Monitor</h1>
+    
+    <input type="text" id="addressInput" placeholder="G..." style="width: 300px;">
+    <button onclick="saveAndLoad()">保存して表示</button>
+
+    <div id="result" style="margin-top: 20px;">
+        <p>残高: <span id="balance">---</span> XLM</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/13.0.0/stellar-sdk.min.js"></script>
+    <script>
+        const server = new StellarSdk.Server('https://horizon.stellar.org');
+
+        // ページ開いた時に保存済みアドレスがあれば読み込む
+        window.onload = () => {
+            const saved = localStorage.getItem('my_xlm_address');
+            if (saved) {
+                document.getElementById('addressInput').value = saved;
+                loadBalance(saved);
+            }
+        };
+
+        function saveAndLoad() {
+            const addr = document.getElementById('addressInput').value;
+            localStorage.setItem('my_xlm_address', addr); // ブラウザに保存
+            loadBalance(addr);
+        }
+
+        async function loadBalance(addr) {
+            try {
+                const account = await server.loadAccount(addr);
+                const xlm = account.balances.find(b => b.asset_type === 'native');
+                document.getElementById('balance').innerText = xlm.balance;
+            } catch (e) {
+                alert('エラー: アドレスが正しくないか、未有効化です');
+            }
+        }
+    </script>
+</body>
+</html>
