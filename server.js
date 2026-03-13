@@ -8,53 +8,94 @@ app.use(express.static(__dirname));
 
 app.get("/balance/:address", async (req, res) => {
 
-const address = req.params.address;
+  const address = req.params.address;
 
-try{
+  try {
 
-const response = await fetch(
-`https://horizon.stellar.org/accounts/${address}`
-);
+    const accountRes = await fetch(
+      `https://horizon.stellar.org/accounts/${address}`
+    );
 
-if(!response.ok){
-return res.json({error:"address not found"})
-}
+    const accountData = await accountRes.json();
 
-const data = await response.json();
+    if (!accountData.balances) {
+      return res.json({ error: "invalid address" });
+    }
 
-const native =
-data.balances.find(b=>b.asset_type==="native")
+    const nativeBalance = accountData.balances.find(
+      b => b.asset_type === "native"
+    );
 
-if(!native){
-return res.json({error:"no balance"})
-}
+    const balance = nativeBalance ? Number(nativeBalance.balance) : 0;
 
-const balance = Number(native.balance)
+    const priceRes = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=jpy"
+    );
 
-const priceRes = await fetch(
-"https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=jpy"
-)
+    const priceData = await priceRes.json();
 
-const priceData = await priceRes.json()
+    const price = priceData.stellar.jpy;
 
-const price = priceData.stellar.jpy
+    const jpyValue = balance * price;
 
-const jpyValue = balance * price
+    res.json({
+      balance: balance,
+      jpyValue: jpyValue
+    });
 
-res.json({
-balance,
-price,
-jpyValue
-})
+  } catch (error) {
 
-}catch(err){
+    res.json({ error: "server error" });
 
-res.json({error:"server error"})
+  }
 
-}
+});
 
-})
 
-app.listen(PORT,()=>{
-console.log("server running")
-})
+app.get("/transactions/:address", async (req, res) => {
+
+  const address = req.params.address;
+
+  try {
+
+    const response = await fetch(
+      `https://horizon.stellar.org/accounts/${address}/operations?limit=50`
+    );
+
+    const data = await response.json();
+
+    if (!data._embedded) {
+      return res.json([]);
+    }
+
+    const tx = data._embedded.records
+      .filter(t => t.type === "payment")
+      .map(t => {
+
+        let type = "other";
+
+        if (t.to === address) type = "receive";
+        if (t.from === address) type = "send";
+
+        return {
+          amount: Number(t.amount),
+          type: type,
+          time: t.created_at
+        };
+
+      });
+
+    res.json(tx);
+
+  } catch (error) {
+
+    res.json([]);
+
+  }
+
+});
+
+
+app.listen(PORT, () => {
+  console.log("server running");
+});
