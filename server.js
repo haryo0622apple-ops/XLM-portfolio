@@ -1,37 +1,35 @@
-const express=require("express")
-const fetch=require("node-fetch")
+const express = require("express")
+const fetch = require("node-fetch")
 
-const app=express()
+const app = express()
 
 app.use(express.static("public"))
 
 /* balance */
 
-app.get("/balance/:address",async(req,res)=>{
+app.get("/balance/:address", async (req, res) => {
 
-const address=req.params.address
+const address = req.params.address
 
 try{
 
-const r=
-await fetch(
-`https://horizon.stellar.org/accounts/${address}`
-)
+const r =
+await fetch(`https://horizon.stellar.org/accounts/${address}`)
 
-const data=
+const data =
 await r.json()
 
-const xlm=
-data.balances.find(b=>b.asset_type==="native")
+const xlm =
+data.balances.find(b => b.asset_type === "native")
 
 res.json({
-balance:xlm.balance
+balance: xlm.balance
 })
 
 }catch{
 
 res.json({
-error:"Address not found"
+error: "Address not found"
 })
 
 }
@@ -40,28 +38,35 @@ error:"Address not found"
 
 /* transactions */
 
-app.get("/transactions/:address",async(req,res)=>{
+app.get("/transactions/:address", async (req, res) => {
 
-const address=req.params.address
+const address = req.params.address
 
 try{
 
-const r=
-await fetch(
-`https://horizon.stellar.org/accounts/${address}/payments?limit=20&order=desc`
-)
+const r =
+await fetch(`https://horizon.stellar.org/accounts/${address}/payments?limit=20&order=desc`)
 
-const data=
+const data =
 await r.json()
 
-const tx=data._embedded.records
+const tx =
+data._embedded.records
 
-const result=tx.map(t=>{
+const result =
+tx.map(t => {
+
+let asset = "XLM"
+
+if(t.asset_code){
+asset = t.asset_code
+}
 
 return{
-type:t.type,
-amount:t.amount,
-time:t.created_at
+type: t.type,
+amount: t.amount,
+asset: asset,
+time: t.created_at
 }
 
 })
@@ -76,11 +81,11 @@ res.json([])
 
 })
 
-const port=
-process.env.PORT||3000
+const port =
+process.env.PORT || 3000
 
-app.listen(port,()=>{
+app.listen(port, () => {
 
-console.log("server started")
+console.log("Server started")
 
 })
