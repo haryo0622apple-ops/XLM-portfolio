@@ -11,22 +11,37 @@
 
 body{
 font-family:Arial;
-max-width:600px;
+max-width:700px;
 margin:auto;
 padding:40px;
+background:#f5f5f5;
+}
+
+h2{
+text-align:center;
 }
 
 input{
-width:80%;
-padding:10px;
+width:70%;
+padding:12px;
+font-size:16px;
 }
 
 button{
-padding:10px;
+padding:12px;
+font-size:16px;
+}
+
+.card{
+background:white;
+padding:20px;
+margin-top:20px;
+border-radius:10px;
+box-shadow:0 0 10px rgba(0,0,0,0.1);
 }
 
 canvas{
-margin-top:40px;
+margin-top:20px;
 }
 
 </style>
@@ -37,18 +52,33 @@ margin-top:40px;
 
 <h2>XLM Wallet Explorer</h2>
 
+<div class="card">
+
 <input id="address" placeholder="Stellar Address">
 
-<button onclick="check()">Check</button>
+<button onclick="check()">Search</button>
+
+</div>
+
+<div class="card">
 
 <h3 id="result"></h3>
 
+</div>
+
+<div class="card">
+
+<h3>Asset History</h3>
+
 <canvas id="balanceChart"></canvas>
+
+</div>
 
 
 <script>
 
 let chart;
+
 
 async function check(){
 
@@ -65,8 +95,7 @@ await res.json()
 if(data.balance){
 
 document.getElementById("result").innerText =
-data.balance +
-" XLM  (約 ¥"+
+data.balance + " XLM (約 ¥"+
 Math.floor(data.jpyValue).toLocaleString()+")"
 
 loadChart(address)
@@ -84,44 +113,52 @@ document.getElementById("result").innerText =
 
 async function loadChart(address){
 
-const res =
+const txRes =
 await fetch(`/transactions/${address}`)
 
-const data =
-await res.json()
+const tx =
+await txRes.json()
 
-let balance=0
+const balanceRes =
+await fetch(`/balance/${address}`)
+
+const balanceData =
+await balanceRes.json()
+
+let balance = Number(balanceData.balance)
 
 let labels=[]
 let values=[]
 
-data.reverse().forEach(tx=>{
 
-if(tx.type==="receive")
-balance+=Number(tx.amount)
+tx.forEach(t=>{
 
-if(tx.type==="send")
-balance-=Number(tx.amount)
+labels.unshift(t.time.substring(0,10))
 
-labels.push(tx.time.substring(0,10))
+values.unshift(balance)
 
-values.push(balance)
+if(t.type==="receive")
+balance -= Number(t.amount)
+
+if(t.type==="send")
+balance += Number(t.amount)
 
 })
 
 
-const ctx=
+const ctx =
 document.getElementById("balanceChart")
 
 if(chart){
 chart.destroy()
 }
 
-chart=new Chart(ctx,{
+chart = new Chart(ctx,{
 
 type:"line",
 
 data:{
+
 labels:labels,
 
 datasets:[{
@@ -130,9 +167,9 @@ label:"XLM Balance",
 
 data:values,
 
-borderWidth:2,
+borderWidth:3,
 
-tension:0.1
+tension:0.2
 
 }]
 
