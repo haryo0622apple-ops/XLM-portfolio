@@ -24,25 +24,39 @@
         </div>
     </div>
 
-    <script>
-        // ページ読み込み時に保存されたアドレスを表示
-        window.onload = () => {
-            const savedAddress = localStorage.getItem('stellar_address');
-            if (savedAddress) {
-                document.getElementById('displayAddr').innerText = savedAddress;
-                document.getElementById('addressInput').value = savedAddress;
-            }
-        };
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/13.0.0/stellar-sdk.min.js"></script>
+<script>
+    const server = new StellarSdk.Server('https://horizon.stellar.org');
 
-        // あなたの提示した保存ロジック
-        function saveAddress() {
-            const address = document.getElementById('addressInput').value;
-            if(!address) return alert("アドレスを入力してください");
+    window.onload = async () => {
+        const savedAddress = localStorage.getItem('stellar_address');
+        if (savedAddress) {
+            document.getElementById('displayAddr').innerText = savedAddress;
+            document.getElementById('addressInput').value = savedAddress;
             
-            localStorage.setItem('stellar_address', address);
-            alert('アドレスを保存しました！');
-            location.reload(); 
+            // 保存されたアドレスの残高を取得
+            await fetchBalance(savedAddress);
         }
-    </script>
+    };
+
+    async function fetchBalance(addr) {
+        try {
+            const account = await server.loadAccount(addr);
+            const native = account.balances.find(b => b.asset_type === 'native');
+            document.getElementById('balanceDisplay').innerText = `${native.balance} XLM`;
+        } catch (e) {
+            document.getElementById('balanceDisplay').innerText = 'エラー：残高を取得できません';
+        }
+    }
+
+    function saveAddress() {
+        const address = document.getElementById('addressInput').value;
+        if(!address) return alert("アドレスを入力してください");
+        
+        localStorage.setItem('stellar_address', address);
+        alert('アドレスを保存しました！');
+        location.reload(); 
+    }
+</script>
 </body>
 </html>
