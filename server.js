@@ -5,7 +5,7 @@ const app = express()
 
 app.use(express.static("public"))
 
-/* balance */
+/* Balance */
 
 app.get("/balance/:address", async (req, res) => {
 
@@ -36,7 +36,7 @@ error: "Address not found"
 
 })
 
-/* transactions */
+/* Transactions */
 
 app.get("/transactions/:address", async (req, res) => {
 
@@ -62,8 +62,30 @@ if(t.asset_code){
 asset = t.asset_code
 }
 
+/* type変換 */
+
+let type = t.type
+
+if(type === "path_payment_strict_send"){
+type = "SWAP"
+}
+
+if(type === "path_payment_strict_receive"){
+type = "SWAP"
+}
+
+if(type === "payment"){
+
+if(t.from === address){
+type = "SEND"
+}else{
+type = "RECEIVE"
+}
+
+}
+
 return{
-type: t.type,
+type: type,
 amount: t.amount,
 asset: asset,
 time: t.created_at
