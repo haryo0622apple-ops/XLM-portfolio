@@ -3,41 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stellar Pro Portfolio</title>
+    <title>Stellar Pro Monitor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/13.0.0/stellar-sdk.min.js"></script>
     <style>
-        :root { --bg: #030712; --card: #111827; --primary: #38bdf8; --text: #f9fafb; --border: #374151; --up: #10b981; --down: #ef4444; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; }
-        .container { width: 100%; max-width: 420px; }
-        .header { background: var(--card); padding: 25px; border-radius: 20px; border: 1px solid var(--border); text-align: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h1 { margin: 0 0 15px; font-size: 20px; letter-spacing: 2px; color: var(--primary); }
-        input { width: 100%; padding: 14px; background: #000; border: 1px solid var(--border); border-radius: 12px; color: #fff; margin-bottom: 15px; box-sizing: border-box; font-family: monospace; }
-        button { background: var(--primary); color: #000; border: none; padding: 14px; border-radius: 12px; font-weight: 800; width: 100%; cursor: pointer; transition: 0.2s; }
-        button:hover { opacity: 0.9; transform: scale(0.98); }
-        .asset-card { background: var(--card); padding: 18px; border-radius: 16px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .asset-name { font-weight: 900; color: var(--primary); font-size: 1.1rem; }
-        .asset-amt { font-size: 0.9rem; color: #94a3b8; margin-top: 4px; }
-        .asset-val { text-align: right; }
-        .jpy { font-size: 1.2rem; font-weight: 800; }
-        #status { font-size: 12px; color: #94a3b8; margin-top: 12px; }
+        :root { --bg: #020617; --card: #0f172a; --primary: #38bdf8; --text: #f1f5f9; --border: #1e293b; --up: #22c55e; --down: #ef4444; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; }
+        .container { width: 100%; max-width: 400px; }
+        .config { background: var(--card); padding: 20px; border-radius: 20px; border: 1px solid var(--border); text-align: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h1 { font-size: 1.2rem; color: var(--primary); margin-bottom: 15px; letter-spacing: 2px; }
+        input { width: 100%; padding: 12px; background: #000; border: 1px solid var(--border); border-radius: 10px; color: white; margin-bottom: 10px; box-sizing: border-box; font-size: 13px; font-family: monospace; }
+        button { background: var(--primary); color: #000; border: none; padding: 12px; border-radius: 10px; font-weight: bold; width: 100%; cursor: pointer; }
+        .total-box { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 20px; border-radius: 15px; border: 1px solid var(--primary); text-align: center; margin-bottom: 20px; }
+        .total-label { font-size: 0.8rem; color: var(--primary); margin-bottom: 5px; }
+        .total-amount { font-size: 2rem; font-weight: 800; }
+        .asset-card { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .asset-name { font-weight: bold; color: var(--primary); }
+        .asset-amt { font-size: 0.9rem; color: #94a3b8; }
+        .asset-jpy { font-size: 1.1rem; font-weight: bold; text-align: right; }
+        #status { font-size: 11px; color: #64748b; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header">
+    <div class="config">
         <h1>STELLAR MONITOR</h1>
         <input type="text" id="address" placeholder="G..." spellcheck="false">
-        <button onclick="fetchPortfolio()">SCAN ASSETS</button>
-        <div id="status">アドレスを入力して開始</div>
+        <button onclick="update()">UPDATE PORTFOLIO</button>
+        <div id="status">Ready</div>
     </div>
+
+    <div class="total-box" id="totalArea" style="display:none;">
+        <div class="total-label">ESTIMATED TOTAL VALUE</div>
+        <div class="total-amount" id="grandTotal">¥ 0</div>
+    </div>
+
     <div id="list"></div>
 </div>
 
 <script>
-    // Proxy経由で接続
-    const server = new StellarSdk.Server(window.location.origin + '/stellar');
-
     async function getXlmPrice() {
         try {
             const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=jpy');
@@ -46,33 +50,31 @@
         } catch { return 0; }
     }
 
-    async function fetchPortfolio() {
+    async function update() {
         const addr = document.getElementById('address').value.trim();
         const list = document.getElementById('list');
         const status = document.getElementById('status');
-
         if (!addr.startsWith('G')) return;
 
         localStorage.setItem('saved_addr', addr);
-        status.innerText = "ネットワークスキャン中...";
+        status.innerText = "Scanning Network...";
         list.innerHTML = "";
+
+        // 通信先を自分のサーバーのProxy(/stellar)に向ける
+        const server = new StellarSdk.Server(window.location.origin + '/stellar');
 
         try {
             const xlmPrice = await getXlmPrice();
             const acc = await server.loadAccount(addr);
-            const prev = JSON.parse(localStorage.getItem(`p_${addr}`) || '{}');
-            const current = {};
+            let totalJpyAll = 0;
 
             for (const b of acc.balances) {
                 const code = b.asset_type === 'native' ? 'XLM' : b.asset_code;
                 const amt = parseFloat(b.balance);
                 if (amt === 0) continue;
-                current[code] = amt;
 
-                let dexPrice = 0;
-                if (b.asset_type === 'native') {
-                    dexPrice = 1;
-                } else {
+                let dexPrice = (b.asset_type === 'native') ? 1 : 0;
+                if (b.asset_type !== 'native') {
                     try {
                         const asset = new StellarSdk.Asset(b.asset_code, b.asset_issuer);
                         const ob = await server.orderbook(StellarSdk.Asset.native(), asset).call();
@@ -81,35 +83,31 @@
                 }
 
                 const jpyVal = Math.floor(xlmPrice * dexPrice * amt);
-                let diff = "";
-                if (prev[code] !== undefined) {
-                    if (amt > prev[code]) diff = '<span style="color:var(--up)">▲</span>';
-                    else if (amt < prev[code]) diff = '<span style="color:var(--down)">▼</span>';
-                }
+                totalJpyAll += jpyVal;
 
                 list.insertAdjacentHTML('beforeend', `
                     <div class="asset-card">
                         <div>
                             <div class="asset-name">${code}</div>
-                            <div class="asset-amt">${amt.toLocaleString()} ${code}${diff}</div>
+                            <div class="asset-amt">${amt.toLocaleString()} ${code}</div>
                         </div>
-                        <div class="asset-val">
-                            <div class="jpy">¥${jpyVal > 0 ? jpyVal.toLocaleString() : '---'}</div>
-                        </div>
+                        <div class="asset-jpy">¥${jpyVal.toLocaleString()}</div>
                     </div>
                 `);
             }
-            localStorage.setItem(`p_${addr}`, JSON.stringify(current));
-            status.innerText = "最終更新: " + new Date().toLocaleTimeString();
+
+            document.getElementById('totalArea').style.display = 'block';
+            document.getElementById('grandTotal').innerText = "¥ " + totalJpyAll.toLocaleString();
+            status.innerText = "Updated: " + new Date().toLocaleTimeString();
         } catch (e) {
             console.error(e);
-            status.innerText = "エラー: 通信に失敗しました。";
+            status.innerText = "Connection failed. Please use Railway URL and Brave Secret mode.";
         }
     }
 
     window.onload = () => {
         const s = localStorage.getItem('saved_addr');
-        if (s) { document.getElementById('address').value = s; fetchPortfolio(); }
+        if (s) { document.getElementById('address').value = s; update(); }
     };
 </script>
 </body>
