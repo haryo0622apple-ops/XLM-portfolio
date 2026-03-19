@@ -3,169 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stellar Multi-Asset Monitor</title>
+    <title>Stellar All-Asset Monitor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/13.0.0/stellar-sdk.min.js"></script>
     <style>
         :root { --bg: #030712; --card: #111827; --primary: #38bdf8; --text: #f9fafb; --border: #374151; --up: #10b981; --down: #ef4444; }
-        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
-        h1 { font-size: 1.5rem; margin: 0 0 20px; letter-spacing: 2px; color: var(--primary); text-transform: uppercase; }
-        .config { background: var(--card); padding: 20px; border-radius: 16px; border: 1px solid var(--border); width: 100%; max-width: 450px; text-align: center; margin-bottom: 20px; box-sizing: border-box; }
-        input { width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; color: white; margin-bottom: 15px; box-sizing: border-box; text-align: center; font-family: monospace; }
-        button { background: var(--primary); color: #000; border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; text-transform: uppercase; }
-        button:hover { opacity: 0.8; }
-        .portfolio { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 450px; display: none; }
-        .asset-card { background: var(--card); padding: 18px; border-radius: 16px; border: 1px solid var(--border); display: grid; grid-template-columns: 50px 1fr auto; align-items: center; gap: 15px; }
-        .asset-icon { font-size: 1.5rem; font-weight: bold; background: rgba(255,255,255,0.05); width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; border-radius: 50%; color: var(--primary); border: 1px solid rgba(255,255,255,0.1); }
-        .asset-info { }
-        .asset-code { font-size: 1.1rem; font-weight: bold; margin-bottom: 3px; }
-        .asset-amount-area { display: flex; align-items: center; gap: 5px; }
-        .asset-amount { font-size: 1rem; color: #94a3b8; }
-        .change { font-size: 0.8rem; font-weight: bold; }
-        .change.up { color: var(--up); }
-        .change.down { color: var(--down); }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .config { background: var(--card); padding: 20px; border-radius: 16px; border: 1px solid var(--border); width: 100%; max-width: 450px; text-align: center; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; color: white; margin-bottom: 15px; box-sizing: border-box; text-align: center; }
+        button { background: var(--primary); color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; text-transform: uppercase; }
+        .portfolio { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 450px; }
+        .asset-card { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .asset-name { font-weight: bold; color: var(--primary); font-size: 1.1rem; }
+        .asset-amount { font-size: 0.9rem; color: #94a3b8; margin-top: 2px; }
         .asset-value { text-align: right; }
-        .asset-jpy { font-size: 1.2rem; font-weight: 800; }
-        .asset-price { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
-        #status { color: #ef4444; font-size: 12px; margin-top: 10px; width: 100%; text-align: center; }
+        .jpy-price { font-size: 1.1rem; font-weight: 800; }
+        .change-icon { margin-left: 5px; font-weight: bold; }
+        .up { color: var(--up); } .down { color: var(--down); }
+        #status { color: #94a3b8; font-size: 12px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-<h1>Stellar Assets</h1>
-
 <div class="config">
-    <input type="text" id="address" placeholder="Enter XLM Address (G...)">
-    <button onclick="updateData()">Update Data</button>
+    <h2 style="color: var(--primary); margin-top:0;">Stellar All Assets</h2>
+    <input type="text" id="address" placeholder="G...">
+    <button onclick="updateData()">Scan Wallet</button>
+    <div id="status"></div>
 </div>
 
-<div class="portfolio" id="portfolio">
-    <div id="assetsList"></div>
-</div>
-
-<div id="status"></div>
+<div class="portfolio" id="assetList"></div>
 
 <script>
     const server = new StellarSdk.Server('https://stellar-mainnet.publicnode.com');
 
-    // 円換算用のCoinGecko価格 (XLMのみ取得)
-    async function getXlmPriceJpy() {
+    // XLMの日本円価格を取得
+    async function getXlmPrice() {
         try {
             const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=jpy');
             const data = await res.json();
             return data.stellar.jpy;
-        } catch (e) {
-            console.error("CoinGecko Error", e);
-            return null; // 価格取得失敗
-        }
+        } catch (e) { return 0; }
     }
 
-    // Stellar DEXの価格を取得 (対XLM)
-    async function getDexPrice(asset) {
-        if (asset.isNative()) return 1; // XLMなら価格は1 (対XLM)
+    // 各トークンの対XLM価格をDEXから取得
+    async function getDexPrice(bal) {
+        if (bal.asset_type === 'native') return 1;
         try {
-            const selling = StellarSdk.Asset.native();
-            const orderbook = await server.orderbook(selling, asset).call();
-            if (orderbook.bids.length > 0) {
-                // 最良買い気配値をDEX価格とする
-                return parseFloat(orderbook.bids[0].price);
-            }
-        } catch (e) {
-            console.error(`DEX Error for ${asset.getCode()}`, e);
-        }
-        return null;
+            const asset = new StellarSdk.Asset(bal.asset_code, bal.asset_issuer);
+            const native = StellarSdk.Asset.native();
+            const orderbook = await server.orderbook(native, asset).call();
+            return orderbook.bids.length > 0 ? parseFloat(orderbook.bids[0].price) : 0;
+        } catch (e) { return 0; }
     }
 
     async function updateData() {
         const addr = document.getElementById('address').value.trim();
-        const portfolio = document.getElementById('portfolio');
-        const list = document.getElementById('assetsList');
+        const list = document.getElementById('assetList');
         const status = document.getElementById('status');
 
-        if (!addr.startsWith('G')) return alert('Valid G address required.');
+        if (!addr.startsWith('G')) return;
 
-        localStorage.setItem('saved_stellar_addr_v3', addr);
-        status.innerText = "Connecting...";
+        status.innerText = "Scanning network...";
         list.innerHTML = "";
-        portfolio.style.display = 'none';
-
-        // 前回の残高データを読み込み
-        const prevBalances = JSON.parse(localStorage.getItem(`stellar_prev_bal_${addr}`) || '{}');
-        const currentBalances = {};
 
         try {
-            // 1. 口座情報を取得
+            const xlmPrice = await getXlmPrice();
             const acc = await server.loadAccount(addr);
-            // 2. 円価格を取得
-            const xlmPriceJpy = await getXlmPriceJpy();
+            const prevBal = JSON.parse(localStorage.getItem(`pb_${addr}`) || '{}');
+            const currentBal = {};
 
-            // 定義：取得対象アセット
-            const targetAssets = {
-                'XLM': StellarSdk.Asset.native(),
-                'USDC': new StellarSdk.Asset('USDC', 'GBBD47IF6LWLVOFP465NSI6X5GPDSSG2H4GZP6ODNFBGGPPH556S6A'), // Center
-                'SSLX': new StellarSdk.Asset('SSLX', 'GB2S56XG6PPH3D7BO2GPNQ5M3OD6YGYVMDJ6ODDNOQPP5GP5GP5A'), // サンプル
-                'STARDUST': new StellarSdk.Asset('STARDUST', 'GA6P6PPH2GP5H3ODJ2YGP5GP5GP5GP5GP5GP5GP5GP5GP5GP5G') // サンプル
-            };
+            // 保有しているすべての資産ループ
+            for (const bal of acc.balances) {
+                const code = bal.asset_type === 'native' ? 'XLM' : bal.asset_code;
+                const amount = parseFloat(bal.balance);
+                if (amount === 0) continue; // 残高0はスキップ
 
-            // アセットごとにデータを処理
-            for (const [code, assetObj] of Object.entries(targetAssets)) {
-                let amount = 0;
-                // 口座のbalancesから探す
-                const bal = acc.balances.find(b => b.asset_type === 'native' ? code === 'XLM' : b.asset_code === code && b.asset_issuer === assetObj.getIssuer());
-                if (bal) amount = parseFloat(bal.balance);
+                currentBal[code] = amount;
 
-                currentBalances[code] = amount;
+                // 価格計算
+                const dexPrice = await getDexPrice(bal);
+                const jpyVal = (xlmPrice * dexPrice * amount);
 
-                // 価格を計算
-                let priceNative = await getDexPrice(assetObj);
-                let priceJpy = xlmPriceJpy && priceNative ? xlmPriceJpy * priceNative : null;
-                let totalJpy = priceJpy ? Math.floor(amount * priceJpy) : null;
-
-                // 増減の判定
-                let changeStr = '';
-                if (prevBalances[code] !== undefined) {
-                    const diff = amount - prevBalances[code];
-                    if (diff > 0.01) changeStr = `<span class="change up">↑</span>`;
-                    else if (diff < -0.01) changeStr = `<span class="change down">↓</span>`;
+                // 増減判定
+                let diffHtml = "";
+                if (prevBal[code] !== undefined) {
+                    const diff = amount - prevBal[code];
+                    if (diff > 0.0001) diffHtml = `<span class="change-icon up">↑</span>`;
+                    else if (diff < -0.0001) diffHtml = `<span class="change-icon down">↓</span>`;
                 }
 
-                // カードの作成
-                const html = `
+                list.insertAdjacentHTML('beforeend', `
                     <div class="asset-card">
-                        <div class="asset-icon">${code.substring(0, 1)}</div>
-                        <div class="asset-info">
-                            <div class="asset-code">${code}</div>
-                            <div class="asset-amount-area">
-                                <div class="asset-amount">${amount.toLocaleString(undefined, {minimumFractionDigits: 1})} ${code}</div>
-                                ${changeStr}
-                            </div>
+                        <div>
+                            <div class="asset-name">${code}</div>
+                            <div class="asset-amount">${amount.toLocaleString()} ${code}${diffHtml}</div>
                         </div>
                         <div class="asset-value">
-                            <div class="asset-jpy">${totalJpy ? '¥ ' + totalJpy.toLocaleString() : '---'}</div>
-                            <div class="asset-price">${priceJpy ? '¥' + priceJpy.toFixed(2) : 'No Price'}</div>
+                            <div class="jpy-price">¥${Math.floor(jpyVal).toLocaleString()}</div>
                         </div>
                     </div>
-                `;
-                list.insertAdjacentHTML('beforeend', html);
+                `);
             }
 
-            // 今回の残高を保存 (次回のために)
-            localStorage.setItem(`stellar_prev_bal_${addr}`, JSON.stringify(currentBalances));
-            portfolio.style.display = 'flex';
-            status.innerText = "";
+            localStorage.setItem(`pb_${addr}`, JSON.stringify(currentBal));
+            localStorage.setItem('last_addr', addr);
+            status.innerText = "Updated: " + new Date().toLocaleTimeString();
 
         } catch (e) {
-            console.error(e);
-            status.innerText = "Error fetching data.";
+            status.innerText = "Error: アドレスを確認してください。";
         }
     }
 
-    // 起動時の自動読み込み
     window.onload = () => {
-        const saved = localStorage.getItem('saved_stellar_addr_v3');
-        if (saved) {
-            document.getElementById('address').value = saved;
-            updateData();
-        }
+        const saved = localStorage.getItem('last_addr');
+        if (saved) { document.getElementById('address').value = saved; updateData(); }
     };
 </script>
 </body>
