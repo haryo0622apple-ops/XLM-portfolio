@@ -1,7 +1,6 @@
 {
   "name": "xlm-portfolio-monitor",
   "version": "1.0.0",
-  "description": "Stellar All-Asset Monitor",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
