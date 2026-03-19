@@ -6,21 +6,18 @@
     <title>Stellar Pro Monitor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/13.0.0/stellar-sdk.min.js"></script>
     <style>
-        :root { --bg: #020617; --card: #0f172a; --primary: #38bdf8; --text: #f1f5f9; --border: #1e293b; --up: #22c55e; --down: #ef4444; }
+        :root { --bg: #020617; --card: #0f172a; --primary: #38bdf8; --text: #f1f5f9; --border: #1e293b; }
         body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; }
         .container { width: 100%; max-width: 400px; }
-        .config { background: var(--card); padding: 20px; border-radius: 20px; border: 1px solid var(--border); text-align: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .config { background: var(--card); padding: 20px; border-radius: 20px; border: 1px solid var(--border); text-align: center; margin-bottom: 20px; }
         h1 { font-size: 1.2rem; color: var(--primary); margin-bottom: 15px; letter-spacing: 2px; }
-        input { width: 100%; padding: 12px; background: #000; border: 1px solid var(--border); border-radius: 10px; color: white; margin-bottom: 10px; box-sizing: border-box; font-size: 13px; font-family: monospace; }
-        button { background: var(--primary); color: #000; border: none; padding: 12px; border-radius: 10px; font-weight: bold; width: 100%; cursor: pointer; }
+        input { width: 100%; padding: 12px; background: #000; border: 1px solid var(--border); border-radius: 10px; color: white; margin-bottom: 15px; box-sizing: border-box; font-family: monospace; }
+        button { background: var(--primary); color: #000; border: none; padding: 15px; border-radius: 10px; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; }
+        button:active { transform: scale(0.98); opacity: 0.8; }
         .total-box { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 20px; border-radius: 15px; border: 1px solid var(--primary); text-align: center; margin-bottom: 20px; }
-        .total-label { font-size: 0.8rem; color: var(--primary); margin-bottom: 5px; }
-        .total-amount { font-size: 2rem; font-weight: 800; }
         .asset-card { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .asset-name { font-weight: bold; color: var(--primary); }
-        .asset-amt { font-size: 0.9rem; color: #94a3b8; }
-        .asset-jpy { font-size: 1.1rem; font-weight: bold; text-align: right; }
-        #status { font-size: 11px; color: #64748b; margin-top: 10px; }
+        #status { font-size: 12px; color: #64748b; margin-top: 10px; min-height: 1.2em; }
     </style>
 </head>
 <body>
@@ -29,19 +26,21 @@
     <div class="config">
         <h1>STELLAR MONITOR</h1>
         <input type="text" id="address" placeholder="G..." spellcheck="false">
-        <button onclick="update()">UPDATE PORTFOLIO</button>
-        <div id="status">Ready</div>
+        <button id="mainBtn" onclick="fetchData()">UPDATE PORTFOLIO</button>
+        <div id="status">準備完了</div>
     </div>
 
     <div class="total-box" id="totalArea" style="display:none;">
-        <div class="total-label">ESTIMATED TOTAL VALUE</div>
-        <div class="total-amount" id="grandTotal">¥ 0</div>
+        <div style="font-size: 0.8rem; color: var(--primary);">ESTIMATED TOTAL VALUE</div>
+        <div id="grandTotal" style="font-size: 2rem; font-weight: 800;">¥ 0</div>
     </div>
 
     <div id="list"></div>
 </div>
 
 <script>
+    const server = new StellarSdk.Server(window.location.origin + '/stellar');
+
     async function getXlmPrice() {
         try {
             const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=jpy');
@@ -50,23 +49,27 @@
         } catch { return 0; }
     }
 
-    async function update() {
+    async function fetchData() {
         const addr = document.getElementById('address').value.trim();
-        const list = document.getElementById('list');
         const status = document.getElementById('status');
-        if (!addr.startsWith('G')) return;
+        const list = document.getElementById('list');
+        const btn = document.getElementById('mainBtn');
 
-        localStorage.setItem('saved_addr', addr);
-        status.innerText = "Scanning Network...";
+        if (!addr.startsWith('G')) {
+            status.innerText = "有効なアドレスを入力してください";
+            return;
+        }
+
+        // 二重クリック防止
+        btn.disabled = true;
+        btn.innerText = "SCANNING...";
+        status.innerText = "ネットワークに接続中...";
         list.innerHTML = "";
-
-        // 通信先を自分のサーバーのProxy(/stellar)に向ける
-        const server = new StellarSdk.Server(window.location.origin + '/stellar');
 
         try {
             const xlmPrice = await getXlmPrice();
             const acc = await server.loadAccount(addr);
-            let totalJpyAll = 0;
+            let totalJpy = 0;
 
             for (const b of acc.balances) {
                 const code = b.asset_type === 'native' ? 'XLM' : b.asset_code;
@@ -83,31 +86,32 @@
                 }
 
                 const jpyVal = Math.floor(xlmPrice * dexPrice * amt);
-                totalJpyAll += jpyVal;
+                totalJpy += jpyVal;
 
                 list.insertAdjacentHTML('beforeend', `
                     <div class="asset-card">
-                        <div>
-                            <div class="asset-name">${code}</div>
-                            <div class="asset-amt">${amt.toLocaleString()} ${code}</div>
-                        </div>
-                        <div class="asset-jpy">¥${jpyVal.toLocaleString()}</div>
+                        <div><div class="asset-name">${code}</div><div style="font-size:0.8rem;color:#94a3b8;">${amt.toLocaleString()}</div></div>
+                        <div style="text-align:right;font-weight:bold;">¥${jpyVal.toLocaleString()}</div>
                     </div>
                 `);
             }
 
             document.getElementById('totalArea').style.display = 'block';
-            document.getElementById('grandTotal').innerText = "¥ " + totalJpyAll.toLocaleString();
-            status.innerText = "Updated: " + new Date().toLocaleTimeString();
+            document.getElementById('grandTotal').innerText = "¥ " + totalJpy.toLocaleString();
+            status.innerText = "最終更新: " + new Date().toLocaleTimeString();
+            localStorage.setItem('saved_addr', addr);
         } catch (e) {
             console.error(e);
-            status.innerText = "Connection failed. Please use Railway URL and Brave Secret mode.";
+            status.innerText = "通信エラー。URLが正しいか確認してください。";
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "UPDATE PORTFOLIO";
         }
     }
 
     window.onload = () => {
         const s = localStorage.getItem('saved_addr');
-        if (s) { document.getElementById('address').value = s; update(); }
+        if (s) { document.getElementById('address').value = s; fetchData(); }
     };
 </script>
 </body>
