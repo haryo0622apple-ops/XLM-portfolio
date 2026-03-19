@@ -1,7 +1,6 @@
 {
   "name": "xlm-portfolio-monitor",
   "version": "1.0.0",
-  "description": "Stellar Multi-Asset Monitor with Proxy",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -9,8 +8,5 @@
   "dependencies": {
     "express": "^4.18.2",
     "express-http-proxy": "^1.6.3"
-  },
-  "engines": {
-    "node": ">=14.0.0"
   }
 }
