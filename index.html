@@ -6,18 +6,19 @@
     <title>Stellar Pro Monitor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/13.0.0/stellar-sdk.min.js"></script>
     <style>
-        :root { --bg: #020617; --card: #0f172a; --primary: #38bdf8; --text: #f1f5f9; --border: #1e293b; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; }
+        :root { --bg: #020617; --card: #0f172a; --primary: #38bdf8; --text: #f1f5f9; --border: #1e293b; --up: #22c55e; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; }
         .container { width: 100%; max-width: 400px; }
-        .config { background: var(--card); padding: 20px; border-radius: 20px; border: 1px solid var(--border); text-align: center; margin-bottom: 20px; }
-        h1 { font-size: 1.2rem; color: var(--primary); margin-bottom: 15px; letter-spacing: 2px; }
-        input { width: 100%; padding: 12px; background: #000; border: 1px solid var(--border); border-radius: 10px; color: white; margin-bottom: 15px; box-sizing: border-box; font-family: monospace; }
-        button { background: var(--primary); color: #000; border: none; padding: 15px; border-radius: 10px; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; }
-        button:active { transform: scale(0.98); opacity: 0.8; }
-        .total-box { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 20px; border-radius: 15px; border: 1px solid var(--primary); text-align: center; margin-bottom: 20px; }
-        .asset-card { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .asset-name { font-weight: bold; color: var(--primary); }
-        #status { font-size: 12px; color: #64748b; margin-top: 10px; min-height: 1.2em; }
+        .config { background: var(--card); padding: 25px; border-radius: 20px; border: 1px solid var(--border); text-align: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h1 { font-size: 1.2rem; color: var(--primary); margin-bottom: 20px; letter-spacing: 2px; }
+        input { width: 100%; padding: 14px; background: #000; border: 1px solid var(--border); border-radius: 12px; color: white; margin-bottom: 15px; box-sizing: border-box; font-family: monospace; font-size: 13px; }
+        button { background: var(--primary); color: #000; border: none; padding: 15px; border-radius: 12px; font-weight: 800; width: 100%; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        button:active { transform: scale(0.98); }
+        .total-box { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 20px; border-radius: 20px; border: 1px solid var(--primary); text-align: center; margin-bottom: 20px; display: none; }
+        .asset-card { background: var(--card); padding: 18px; border-radius: 16px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .asset-name { font-weight: 900; color: var(--primary); font-size: 1.1rem; }
+        #status { font-size: 12px; color: #64748b; margin-top: 15px; }
     </style>
 </head>
 <body>
@@ -30,15 +31,16 @@
         <div id="status">準備完了</div>
     </div>
 
-    <div class="total-box" id="totalArea" style="display:none;">
-        <div style="font-size: 0.8rem; color: var(--primary);">ESTIMATED TOTAL VALUE</div>
-        <div id="grandTotal" style="font-size: 2rem; font-weight: 800;">¥ 0</div>
+    <div class="total-box" id="totalArea">
+        <div style="font-size: 0.8rem; color: var(--primary); margin-bottom: 5px;">ESTIMATED TOTAL VALUE</div>
+        <div id="grandTotal" style="font-size: 2.2rem; font-weight: 900;">¥ 0</div>
     </div>
 
     <div id="list"></div>
 </div>
 
 <script>
+    // Railwayのプロキシ経由でStellarに接続
     const server = new StellarSdk.Server(window.location.origin + '/stellar');
 
     async function getXlmPrice() {
@@ -60,16 +62,15 @@
             return;
         }
 
-        // 二重クリック防止
         btn.disabled = true;
         btn.innerText = "SCANNING...";
-        status.innerText = "ネットワークに接続中...";
+        status.innerText = "ネットワークからデータを取得中...";
         list.innerHTML = "";
 
         try {
             const xlmPrice = await getXlmPrice();
             const acc = await server.loadAccount(addr);
-            let totalJpy = 0;
+            let totalJpyAll = 0;
 
             for (const b of acc.balances) {
                 const code = b.asset_type === 'native' ? 'XLM' : b.asset_code;
@@ -86,23 +87,28 @@
                 }
 
                 const jpyVal = Math.floor(xlmPrice * dexPrice * amt);
-                totalJpy += jpyVal;
+                totalJpyAll += jpyVal;
 
                 list.insertAdjacentHTML('beforeend', `
                     <div class="asset-card">
-                        <div><div class="asset-name">${code}</div><div style="font-size:0.8rem;color:#94a3b8;">${amt.toLocaleString()}</div></div>
-                        <div style="text-align:right;font-weight:bold;">¥${jpyVal.toLocaleString()}</div>
+                        <div>
+                            <div class="asset-name">${code}</div>
+                            <div style="font-size:0.9rem; color:#94a3b8; margin-top:4px;">${amt.toLocaleString()} ${code}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:1.2rem; font-weight:800;">¥${jpyVal.toLocaleString()}</div>
+                        </div>
                     </div>
                 `);
             }
 
             document.getElementById('totalArea').style.display = 'block';
-            document.getElementById('grandTotal').innerText = "¥ " + totalJpy.toLocaleString();
+            document.getElementById('grandTotal').innerText = "¥ " + totalJpyAll.toLocaleString();
             status.innerText = "最終更新: " + new Date().toLocaleTimeString();
             localStorage.setItem('saved_addr', addr);
         } catch (e) {
             console.error(e);
-            status.innerText = "通信エラー。URLが正しいか確認してください。";
+            status.innerText = "エラー: 通信に失敗しました。Brave Shieldsをオフにしてください。";
         } finally {
             btn.disabled = false;
             btn.innerText = "UPDATE PORTFOLIO";
